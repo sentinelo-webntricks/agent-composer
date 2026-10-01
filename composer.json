@@ -1,0 +1,39 @@
+{
+    "name": "sentinelo/agent-composer",
+    "description": "Agent de maintenance Sentinelo pour les applications basées sur Composer — Symfony, Sylius, Laravel.",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": ">=8.2",
+        "ext-json": "*",
+        "ext-openssl": "*",
+        "ext-pdo": "*",
+        "ext-zip": "*",
+        "sentinelo/agent-core": "^1.0"
+    },
+    "suggest": {
+        "ext-curl": "Transport HTTP par défaut. Sans lui l'agent bascule sur les flux PHP, qui n'envoient pas de gros fichiers aussi efficacement.",
+        "symfony/framework-bundle": "Pour monter l'agent en bundle Symfony/Sylius.",
+        "laravel/framework": "Pour monter l'agent en service provider Laravel.",
+        "symfony/console": "Pour la commande `sentinelo:run`, appelée par cron. Sans elle l'agent reste pilotable en HTTP, mais rien ne déclenche les tâches planifiées."
+    },
+    "autoload": {
+        "psr-4": {
+            "Sentinelo\\Agent\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Sentinelo\\Agent\\Laravel\\SentineloServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "platform": {
+            "php": "8.2.0"
+        }
+    },
+    "minimum-stability": "stable"
+}
