@@ -85,7 +85,7 @@ dans `ComposerScanProfile` et épinglées par un test.
 
 ## Installation
 
-Chaque étape est ici. Les étapes 2 à 4 se font **à la main** : `composer require` ne les
+Chaque étape est ici. Les étapes 2 et 4 se font **à la main** : `composer require` ne les
 fait pas et ne les signale pas.
 
 ### 1. Le paquet
@@ -117,19 +117,25 @@ Puis `php bin/console cache:clear`.
 
 **Laravel :** rien à faire, le service provider est auto-découvert.
 
-### 3. Le secret
+### 3. Le secret — rien à faire
 
-L'agent chiffre les archives avant qu'elles ne quittent la machine, avec une clé dérivée
-de `SENTINELO_SECRET` (sinon `APP_SECRET`, sinon `APP_KEY`). Une variable dédiée est
-recommandée, dans `.env.local` — jamais dans un fichier versionné :
+L'agent chiffre chaque sauvegarde avant de l'envoyer, et garde sa clé d'API chiffrée en
+base. Il utilise pour cela le secret que le projet possède déjà : `APP_SECRET` (Symfony,
+Sylius) ou `APP_KEY` (Laravel). **Aucune action n'est nécessaire.**
 
-```bash
-php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'   # → SENTINELO_SECRET=…
-```
+Une seule règle : **ne changez pas ce secret une fois l'agent installé.** Les
+sauvegardes déjà faites deviendraient illisibles, et l'agent perdrait sa connexion à la
+plateforme.
 
-> **Conserver ce secret hors du site.** Il déchiffre les sauvegardes : le perdre rend
-> illisible tout ce qui a été sauvegardé avec.
+Pour pouvoir changer `APP_SECRET` plus tard sans conséquence, donnez à l'agent son propre
+secret, `SENTINELO_SECRET`, dans `.env.local` (jamais dans un fichier versionné) :
 
+- **avant l'enrôlement** : n'importe quelle chaîne aléatoire d'au moins 16 caractères ;
+- **sur un agent déjà en service** : la valeur **actuelle** d'`APP_SECRET` — une autre
+  valeur aurait le même effet qu'un changement de secret.
+
+> **Gardez une copie de ce secret hors du site.** Il déchiffre les sauvegardes : si le
+> serveur est perdu, il faut ce secret pour les relire.
 ### 4. Le cron
 
 ```cron
