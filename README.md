@@ -85,13 +85,66 @@ dans `ComposerScanProfile` et épinglées par un test.
 
 ## Installation
 
-Voir [`docs/AGENT-DISTRIBUTION.md`](../docs/AGENT-DISTRIBUTION.md) — dépôt Composer
-privé, authentification, montage du bundle ou du service provider, ligne de cron, et
-**enrôlement**.
+Chaque étape est ici. Les étapes 2 à 4 se font **à la main** : `composer require` ne les
+fait pas et ne les signale pas.
+
+### 1. Le paquet
+
+```bash
+composer require sentinelo/agent-composer
+```
+
+### 2. Monter l'agent — Symfony / Sylius uniquement
+
+**`composer require` ne suffit pas, et rien ne le dit.** Le paquet n'a pas de recette
+Flex : le bundle n'est pas ajouté à `bundles.php` d'un projet existant, et les routes ne
+sont pas importées. Sans ces deux lignes l'agent est installé et muet — le site répond
+404 sur `/_sentinelo/v1/…`.
+
+```php
+// config/bundles.php
+Sentinelo\Agent\Symfony\SentineloBundle::class => ['all' => true],
+```
+
+```yaml
+# config/routes/sentinelo.yaml
+sentinelo:
+    resource: '@SentineloBundle/config/routes.php'
+    type: php
+```
+
+Puis `php bin/console cache:clear`.
+
+**Laravel :** rien à faire, le service provider est auto-découvert.
+
+### 3. Le secret
+
+L'agent chiffre les archives avant qu'elles ne quittent la machine, avec une clé dérivée
+de `SENTINELO_SECRET` (sinon `APP_SECRET`, sinon `APP_KEY`). Une variable dédiée est
+recommandée, dans `.env.local` — jamais dans un fichier versionné :
+
+```bash
+php -r 'echo bin2hex(random_bytes(32)), PHP_EOL;'   # → SENTINELO_SECRET=…
+```
+
+> **Conserver ce secret hors du site.** Il déchiffre les sauvegardes : le perdre rend
+> illisible tout ce qui a été sauvegardé avec.
+
+### 4. Le cron
+
+```cron
+* * * * * cd /chemin/du/projet && php bin/console sentinelo:run >> /dev/null 2>&1
+```
+
+(`php artisan sentinelo:run` sur Laravel.) Les tables de l'agent sont créées au premier
+passage — aucune migration à ajouter au projet.
+
+### 5. L'enrôlement
 
 L'enrôlement est le geste qui rend l'agent utile : sans clé, `Authenticator` refuse tout
 le monde par `403 NOT_CONFIGURED`, et toute la chaîne (sauvegarde, restauration, scan,
-audit, rapport) est authentifiée par cette clé. Deux chemins, un seul travail :
+audit, rapport) est authentifiée par cette clé. Créer le site dans la plateforme, copier
+la clé affichée, puis — deux chemins, un seul travail :
 
 ```bash
 php bin/console sentinelo:enroll <clé>   # ou : php artisan sentinelo:enroll <clé>
@@ -102,14 +155,11 @@ La clé, le `site_uuid` et le `webhook_secret` rendus par la plateforme sont sce
 la table de l'agent, chiffrés au repos — jamais dans un fichier du projet, qui est un
 dépôt git et dont l'image est reconstruite à chaque déploiement.
 
-## Tests
+### Vérifier
 
 ```bash
-docker run --rm -u $(id -u):$(id -g) -e HOME=/tmp -v $PWD:/repo -w /repo/agent-composer \
-    composer:2 php vendor/bin/phpunit --no-coverage
+curl -s https://votre-site/_sentinelo/v1/status
 ```
 
-Après toute modification de `agents/core`, lancer `make agent-core-sync` : le
-cœur est installé en **copie** dans `vendor/`, et sans resynchronisation la suite teste
-l'ancienne version — un vert trompeur. `make agent-core-check` échoue si les copies ont
-divergé.
+Avant l'enrôlement : `403 NOT_CONFIGURED` dans une enveloppe JSON — l'agent est monté.
+Un 404 veut dire que l'étape 2 manque.
